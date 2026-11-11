@@ -25,6 +25,7 @@ export interface PatternAnalysisResult {
   confidence: number;
   executionTimeMs: number;
   recentSequence?: string;
+  activePatternId?: string;
 }
 
 // User requested patterns explicitly:
@@ -41,79 +42,75 @@ interface PatternRuleDefinition {
 }
 
 export const COMPREHENSIVE_RULES: PatternRuleDefinition[] = [
-  // 1. Dragon Super Streaks (Length 7-8) - NEVER FIGHT A RUNNING DRAGON!
-  { tail: 'BBBBBBBB', prediction: 'BIG', name: '8-DRAGON RUN [BBBBBBBB] → BIG', type: 'DRAGON_TREND', confidence: 99 },
-  { tail: 'SSSSSSSS', prediction: 'SMALL', name: '8-DRAGON RUN [SSSSSSSS] → SMALL', type: 'DRAGON_TREND', confidence: 99 },
-  { tail: 'BBBBBBB', prediction: 'BIG', name: '7-DRAGON RUN [BBBBBBB] → BIG', type: 'DRAGON_TREND', confidence: 99 },
-  { tail: 'SSSSSSS', prediction: 'SMALL', name: '7-DRAGON RUN [SSSSSSS] → SMALL', type: 'DRAGON_TREND', confidence: 99 },
+  // 1. Dragon Super Streaks (Length 7-8) - Follow the Dragon
+  { tail: 'BBBBBBBB', prediction: 'BIG', name: '8-DRAGON RUN [BBBBBBBB] → BIG', type: 'DRAGON_PATTERN', confidence: 99 },
+  { tail: 'SSSSSSSS', prediction: 'SMALL', name: '8-DRAGON RUN [SSSSSSSS] → SMALL', type: 'DRAGON_PATTERN', confidence: 99 },
+  { tail: 'BBBBBBB', prediction: 'BIG', name: '7-DRAGON RUN [BBBBBBB] → BIG', type: 'DRAGON_PATTERN', confidence: 99 },
+  { tail: 'SSSSSSS', prediction: 'SMALL', name: '7-DRAGON RUN [SSSSSSS] → SMALL', type: 'DRAGON_PATTERN', confidence: 99 },
 
   // 2. 6-Phase Mirror Cycles & Dragon Continuations - Length 6
-  { tail: 'BBBBBB', prediction: 'BIG', name: '6-DRAGON CONTINUATION [BBBBBB] → BIG', type: 'DRAGON_TREND', confidence: 98 },
-  { tail: 'SSSSSS', prediction: 'SMALL', name: '6-DRAGON CONTINUATION [SSSSSS] → SMALL', type: 'DRAGON_TREND', confidence: 98 },
-  { tail: 'BBBSSS', prediction: 'BIG', name: '6-MIRROR CYCLE [BBBSSS] → BIG', type: '6-MIRROR', confidence: 98 },
-  { tail: 'SSSBBB', prediction: 'SMALL', name: '6-MIRROR CYCLE [SSSBBB] → SMALL', type: '6-MIRROR', confidence: 98 },
-  { tail: 'BSBSBS', prediction: 'BIG', name: '6-ALTERNATION [BSBSBS] → BIG', type: '6-ALTERNATION', confidence: 97 },
-  { tail: 'SBSBSB', prediction: 'SMALL', name: '6-ALTERNATION [SBSBSB] → SMALL', type: '6-ALTERNATION', confidence: 97 },
-  { tail: 'BBBBBS', prediction: 'SMALL', name: 'DRAGON CUT RECOVERY [BBBBBS] → SMALL', type: 'DRAGON_CUT', confidence: 96 },
-  { tail: 'SSSSSB', prediction: 'BIG', name: 'DRAGON CUT RECOVERY [SSSSSB] → BIG', type: 'DRAGON_CUT', confidence: 96 },
+  { tail: 'BBBBBB', prediction: 'BIG', name: '6-DRAGON CONTINUATION [BBBBBB] → BIG', type: 'DRAGON_PATTERN', confidence: 98 },
+  { tail: 'SSSSSS', prediction: 'SMALL', name: '6-DRAGON CONTINUATION [SSSSSS] → SMALL', type: 'DRAGON_PATTERN', confidence: 98 },
+  { tail: 'BBBSSS', prediction: 'BIG', name: '6-MIRROR CYCLE [BBBSSS] → BIG', type: 'BBBSSS_PATTERN', confidence: 98 },
+  { tail: 'SSSBBB', prediction: 'SMALL', name: '6-MIRROR CYCLE [SSSBBB] → SMALL', type: 'SSSBBB_PATTERN', confidence: 98 },
+  { tail: 'BBBBBS', prediction: 'SMALL', name: 'DRAGON CUT CONFIRMATION [BBBBBS] → SMALL', type: 'DRAGON_CUT', confidence: 96 },
+  { tail: 'SSSSSB', prediction: 'BIG', name: 'DRAGON CUT CONFIRMATION [SSSSSB] → BIG', type: 'DRAGON_CUT', confidence: 96 },
 
-  // 3. 5-Phase Dragon Streaks & Mirror Completions - Length 5
-  { tail: 'BBBBB', prediction: 'BIG', name: '5-DRAGON TREND [BBBBB] → BIG', type: 'DRAGON_TREND', confidence: 98 },
-  { tail: 'SSSSS', prediction: 'SMALL', name: '5-DRAGON TREND [SSSSS] → SMALL', type: 'DRAGON_TREND', confidence: 98 },
-  { tail: 'BBBBS', prediction: 'SMALL', name: 'DRAGON CUT PIVOT [BBBBS] → SMALL', type: 'DRAGON_CUT', confidence: 97 },
-  { tail: 'SSSSB', prediction: 'BIG', name: 'DRAGON CUT PIVOT [SSSSB] → BIG', type: 'DRAGON_CUT', confidence: 97 },
-  { tail: 'BBBSS', prediction: 'SMALL', name: 'ANTICIPATING BBBSSS [BBBSS] → SMALL', type: 'MIRROR_COMPLETION', confidence: 96 },
-  { tail: 'SSSBB', prediction: 'BIG', name: 'ANTICIPATING SSSBBB [SSSBB] → BIG', type: 'MIRROR_COMPLETION', confidence: 96 },
-  { tail: 'BSBSB', prediction: 'SMALL', name: '5-ALTERNATION EXTENSION [BSBSB] → SMALL', type: 'ALTERNATION_EXT', confidence: 95 },
-  { tail: 'SBSBS', prediction: 'BIG', name: '5-ALTERNATION EXTENSION [SBSBS] → BIG', type: 'ALTERNATION_EXT', confidence: 95 },
-  { tail: 'BSSBB', prediction: 'BIG', name: 'BSSB BOUNCE RECOVERY [BSSBB] → BIG', type: 'LOSS_RECOVERY', confidence: 95 },
-  { tail: 'SBBSS', prediction: 'SMALL', name: 'SBBS BOUNCE RECOVERY [SBBSS] → SMALL', type: 'LOSS_RECOVERY', confidence: 95 },
-  { tail: 'BSSBS', prediction: 'SMALL', name: 'BSSBS HARMONIC RECOVERY → SMALL', type: 'HARMONIC', confidence: 94 },
-  { tail: 'SBBSB', prediction: 'BIG', name: 'SBBSB HARMONIC RECOVERY → BIG', type: 'HARMONIC', confidence: 94 },
-  { tail: 'BBSSS', prediction: 'BIG', name: 'BBSSS MIRROR REVERSAL → BIG', type: 'MIRROR_COMPLETION', confidence: 94 },
-  { tail: 'SSBBB', prediction: 'SMALL', name: 'SSBBB MIRROR REVERSAL → SMALL', type: 'MIRROR_COMPLETION', confidence: 94 },
+  // 3. 5-Phase Dragon Streaks & Mirror Anticipations - Length 5
+  { tail: 'BBBBB', prediction: 'BIG', name: '5-DRAGON RUN [BBBBB] → BIG', type: 'DRAGON_PATTERN', confidence: 98 },
+  { tail: 'SSSSS', prediction: 'SMALL', name: '5-DRAGON RUN [SSSSS] → SMALL', type: 'DRAGON_PATTERN', confidence: 98 },
+  { tail: 'BBBBS', prediction: 'SMALL', name: 'DRAGON CUT CONFIRMATION [BBBBS] → SMALL', type: 'DRAGON_CUT', confidence: 96 },
+  { tail: 'SSSSB', prediction: 'BIG', name: 'DRAGON CUT CONFIRMATION [SSSSB] → BIG', type: 'DRAGON_CUT', confidence: 96 },
+  { tail: 'BBBSS', prediction: 'BIG', name: 'ANTICIPATING BBBSSS [BBBSS] → BIG', type: 'BBBSSS_ANTICIPATION', confidence: 96 },
+  { tail: 'SSSBB', prediction: 'SMALL', name: 'ANTICIPATING SSSBBB [SSSBB] → SMALL', type: 'SSSBBB_ANTICIPATION', confidence: 96 },
 
-  // 4. 4-Phase Cycles (BSSB, SBBS, BSBS, SBSB, 4-Dragon BBBB, SSSS) - Length 4
-  { tail: 'BBBB', prediction: 'BIG', name: '4-DRAGON TREND [BBBB] → BIG', type: 'DRAGON_TREND', confidence: 97 },
-  { tail: 'SSSS', prediction: 'SMALL', name: '4-DRAGON TREND [SSSS] → SMALL', type: 'DRAGON_TREND', confidence: 97 },
-  { tail: 'BSSB', prediction: 'SMALL', name: 'BSSB COMPLETED [BSSB] → SMALL', type: 'BSSB_PATTERN', confidence: 96 },
-  { tail: 'SBBS', prediction: 'BIG', name: 'SBBS COMPLETED [SBBS] → BIG', type: 'SBBS_PATTERN', confidence: 96 },
+  // 4. 4-Phase Cycles: BSSB, SBBS, BSBS, SBSB, SSBB, BBSS, and 4-Dragon
+  { tail: 'BBBB', prediction: 'BIG', name: '4-DRAGON TREND [BBBB] → BIG', type: 'DRAGON_PATTERN', confidence: 97 },
+  { tail: 'SSSS', prediction: 'SMALL', name: '4-DRAGON TREND [SSSS] → SMALL', type: 'DRAGON_PATTERN', confidence: 97 },
+  { tail: 'BSSB', prediction: 'SMALL', name: 'BSSB MOTIF [BSSB] → SMALL', type: 'BSSB_PATTERN', confidence: 96 },
+  { tail: 'SBBS', prediction: 'BIG', name: 'SBBS MOTIF [SBBS] → BIG', type: 'SBBS_PATTERN', confidence: 96 },
   { tail: 'BSBS', prediction: 'BIG', name: 'BSBS ALTERNATION [BSBS] → BIG', type: 'BSBS_PATTERN', confidence: 96 },
   { tail: 'SBSB', prediction: 'SMALL', name: 'SBSB ALTERNATION [SBSB] → SMALL', type: 'SBSB_PATTERN', confidence: 96 },
-  { tail: 'BBBS', prediction: 'SMALL', name: '3-STREAK CUT CONFIRMATION [BBBS] → SMALL', type: 'CUT_TRANSITION', confidence: 95 },
-  { tail: 'SSSB', prediction: 'BIG', name: '3-STREAK CUT CONFIRMATION [SSSB] → BIG', type: 'CUT_TRANSITION', confidence: 95 },
-  { tail: 'BBSS', prediction: 'BIG', name: 'BBSS 2-2 REPEAT → BIG', type: '2-2_CYCLE', confidence: 94 },
-  { tail: 'SSBB', prediction: 'SMALL', name: 'SSBB 2-2 REPEAT → SMALL', type: '2-2_CYCLE', confidence: 94 },
-  { tail: 'BBSB', prediction: 'SMALL', name: 'BBSB FRACTURE RECOVERY → SMALL', type: 'FRACTURE', confidence: 92 },
-  { tail: 'SSBS', prediction: 'BIG', name: 'SSBS FRACTURE RECOVERY → BIG', type: 'FRACTURE', confidence: 92 },
+  { tail: 'SSBB', prediction: 'SMALL', name: 'SSBB 2-2 CYCLE [SSBB] → SMALL', type: 'SSBB_PATTERN', confidence: 96 },
+  { tail: 'BBSS', prediction: 'BIG', name: 'BBSS 2-2 CYCLE [BBSS] → BIG', type: 'BBSS_PATTERN', confidence: 96 },
 
-  // 5. 3-Phase Sequences (BBB & SSS Requested by User) - Length 3
-  { tail: 'BBB', prediction: 'SMALL', name: 'BBB PIVOT [BBB] → SMALL', type: 'BBB_PATTERN', confidence: 96 },
-  { tail: 'SSS', prediction: 'BIG', name: 'SSS PIVOT [SSS] → BIG', type: 'SSS_PATTERN', confidence: 96 },
+  // 5. 3-Phase Blocks: BBB, SSS, and Clean Anticipations
+  { tail: 'BBB', prediction: 'SMALL', name: 'BBB 3-STREAK PIVOT [BBB] → SMALL', type: 'BBB_PATTERN', confidence: 96 },
+  { tail: 'SSS', prediction: 'BIG', name: 'SSS 3-STREAK PIVOT [SSS] → BIG', type: 'SSS_PATTERN', confidence: 96 },
+  { tail: 'SSB', prediction: 'BIG', name: 'ANTICIPATING SSBB [SSB] → BIG', type: 'SSBB_ANTICIPATION', confidence: 95 },
+  { tail: 'BBS', prediction: 'SMALL', name: 'ANTICIPATING BBSS [BBS] → SMALL', type: 'BBSS_ANTICIPATION', confidence: 95 },
   { tail: 'BSS', prediction: 'BIG', name: 'ANTICIPATING BSSB [BSS] → BIG', type: 'BSSB_ANTICIPATION', confidence: 95 },
   { tail: 'SBB', prediction: 'SMALL', name: 'ANTICIPATING SBBS [SBB] → SMALL', type: 'SBBS_ANTICIPATION', confidence: 95 },
-  { tail: 'BSB', prediction: 'SMALL', name: 'ANTICIPATING BSBS [BSB] → SMALL', type: 'BSBS_ANTICIPATION', confidence: 94 },
-  { tail: 'SBS', prediction: 'BIG', name: 'ANTICIPATING SBSB [SBS] → BIG', type: 'SBSB_ANTICIPATION', confidence: 94 },
-  { tail: 'BBS', prediction: 'BIG', name: 'BBS PIVOT BOUNCE → BIG', type: 'PIVOT_RECOVERY', confidence: 93 },
-  { tail: 'SSB', prediction: 'SMALL', name: 'SSB PIVOT BOUNCE → SMALL', type: 'PIVOT_RECOVERY', confidence: 93 },
+  { tail: 'BSB', prediction: 'BIG', name: 'ANTICIPATING BSBS [BSB] → BIG', type: 'BSBS_ANTICIPATION', confidence: 94 },
+  { tail: 'SBS', prediction: 'SMALL', name: 'ANTICIPATING SBSB [SBS] → SMALL', type: 'SBSB_ANTICIPATION', confidence: 94 },
 
-  // 6. 2-Phase Anticipation & Continuations - Length 2
-  { tail: 'BB', prediction: 'BIG', name: 'ANTICIPATING BBB [BB] → BIG', type: 'BBB_ANTICIPATION', confidence: 94 },
-  { tail: 'SS', prediction: 'SMALL', name: 'ANTICIPATING SSS [SS] → SMALL', type: 'SSS_ANTICIPATION', confidence: 94 },
-  { tail: 'BS', prediction: 'BIG', name: 'ALTERNATING PAIR [BS] → BIG', type: 'INCEPTION', confidence: 88 },
-  { tail: 'SB', prediction: 'SMALL', name: 'ALTERNATING PAIR [SB] → SMALL', type: 'INCEPTION', confidence: 88 },
+  // 6. 2-Phase Anticipation & Starters
+  { tail: 'BB', prediction: 'BIG', name: 'ANTICIPATING BBB [BB] → BIG', type: 'BBB_ANTICIPATION', confidence: 93 },
+  { tail: 'SS', prediction: 'SMALL', name: 'ANTICIPATING SSS [SS] → SMALL', type: 'SSS_ANTICIPATION', confidence: 93 },
+  { tail: 'BS', prediction: 'BIG', name: 'ALTERNATING MOTIF [BS] → BIG', type: 'STARTER', confidence: 88 },
+  { tail: 'SB', prediction: 'SMALL', name: 'ALTERNATING MOTIF [SB] → SMALL', type: 'STARTER', confidence: 88 },
 ];
 
-// Core Patterns explicitly monitored by Lunar Engine:
-export const CORE_PATTERNS = [
-  { id: 'BSSB', target: 'SMALL', label: 'BSSB', type: 'SYMMETRIC' },
-  { id: 'BBB', target: 'SMALL', label: 'BBB', type: '3-STREAK' },
-  { id: 'SSS', target: 'BIG', label: 'SSS', type: '3-STREAK' },
-  { id: 'BBBSSS', target: 'BIG', label: 'BBBSSS', type: '6-MIRROR' },
-  { id: 'SSSBBB', target: 'SMALL', label: 'SSSBBB', type: '6-MIRROR' },
-  { id: 'SBBS', target: 'BIG', label: 'SBBS', type: 'SYMMETRIC' },
-  { id: 'BSBS', target: 'BIG', label: 'BSBS', type: 'ALTERNATING' },
-] as const;
+// Core Patterns explicitly requested by the user:
+// BSSB, BBB, SSS, BBBSSS, SSSBBB, SBBS, BSBS, SSBB & DRAGON PATTERN
+export interface PatternCardItem {
+  id: string;
+  pattern: string;
+  target: 'BIG' | 'SMALL' | 'TREND';
+  label: string;
+}
+
+export const CORE_PATTERNS: PatternCardItem[] = [
+  { id: 'BSSB', pattern: 'BSSB', target: 'SMALL', label: 'BSSB' },
+  { id: 'BBB', pattern: 'BBB', target: 'SMALL', label: 'BBB' },
+  { id: 'SSS', pattern: 'SSS', target: 'BIG', label: 'SSS' },
+  { id: 'BBBSSS', pattern: 'BBBSSS', target: 'BIG', label: 'BBBSSS' },
+  { id: 'SSSBBB', pattern: 'SSSBBB', target: 'SMALL', label: 'SSSBBB' },
+  { id: 'SBBS', pattern: 'SBBS', target: 'BIG', label: 'SBBS' },
+  { id: 'BSBS', pattern: 'BSBS', target: 'BIG', label: 'BSBS' },
+  { id: 'SSBB', pattern: 'SSBB', target: 'SMALL', label: 'SSBB' },
+  { id: 'DRAGON', pattern: 'BBBB+', target: 'TREND', label: 'DRAGON PATTERN' },
+];
 
 // Pre-sort rules by pattern length descending so longest patterns match first
 export const SORTED_RULES = [...COMPREHENSIVE_RULES].sort((a, b) => b.tail.length - a.tail.length);
@@ -127,19 +124,61 @@ export function getOutcomePattern(history: HistoryItem[], count = 16): string {
 }
 
 // Ultra-fast pattern detection with precise benchmark timing (< 0.01 seconds)
+// Supports BSSB, BBB, SSS, BBBSSS, SSSBBB, SBBS, BSBS and DRAGON PATTERN
 export function analyzePatternLogic(history: HistoryItem[]): PatternAnalysisResult {
   const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
   const sequence = getOutcomePattern(history, 16);
 
-  // Scan through all pattern rules sorted by tail length (longest match first)
+  // 1. Dynamic DRAGON PATTERN detection (4 or more consecutive identical outcomes: BBBB... or SSSS...)
+  const lastChar = sequence.slice(-1) || 'B';
+  let dragonStreak = 0;
+  for (let i = sequence.length - 1; i >= 0; i--) {
+    if (sequence[i] === lastChar) {
+      dragonStreak++;
+    } else {
+      break;
+    }
+  }
+
+  if (dragonStreak >= 4) {
+    const elapsed = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
+    const isBig = lastChar === 'B';
+    const side = isBig ? 'BIG' : 'SMALL';
+    return {
+      prediction: isBig ? 'BIG' : 'SMALL',
+      strategy: `🐉 ${dragonStreak}-DRAGON PATTERN [${lastChar.repeat(Math.min(8, dragonStreak))}] → FOLLOW DRAGON`,
+      patternDetected: `DRAGON (${dragonStreak}x ${side})`,
+      trendType: 'DRAGON_PATTERN',
+      activePatternId: 'DRAGON',
+      confidence: Math.min(99, 94 + Math.min(5, dragonStreak)),
+      executionTimeMs: Math.max(0.005, Number(elapsed.toFixed(3))),
+      recentSequence: sequence,
+    };
+  }
+
+  // 2. Scan through all specific pattern rules (BSSB, BBB, SSS, BBBSSS, SSSBBB, SBBS, BSBS, SSBB, etc.)
   for (const rule of SORTED_RULES) {
     if (sequence.endsWith(rule.tail)) {
       const elapsed = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
+
+      // Map to core pattern ID if applicable
+      let activePatternId: string | undefined = undefined;
+      if (rule.tail === 'BSSB' || rule.type.includes('BSSB')) activePatternId = 'BSSB';
+      else if (rule.tail === 'SBBS' || rule.type.includes('SBBS')) activePatternId = 'SBBS';
+      else if (rule.tail === 'BBB' || rule.type === 'BBB_PATTERN') activePatternId = 'BBB';
+      else if (rule.tail === 'SSS' || rule.type === 'SSS_PATTERN') activePatternId = 'SSS';
+      else if (rule.tail === 'BBBSSS' || rule.type.includes('BBBSSS')) activePatternId = 'BBBSSS';
+      else if (rule.tail === 'SSSBBB' || rule.type.includes('SSSBBB')) activePatternId = 'SSSBBB';
+      else if (rule.tail === 'BSBS' || rule.type.includes('BSBS')) activePatternId = 'BSBS';
+      else if (rule.tail === 'SSBB' || rule.type.includes('SSBB')) activePatternId = 'SSBB';
+      else if (rule.type.includes('DRAGON')) activePatternId = 'DRAGON';
+
       return {
         prediction: rule.prediction,
         strategy: rule.name,
         patternDetected: rule.tail,
         trendType: rule.type,
+        activePatternId,
         confidence: rule.confidence,
         executionTimeMs: Math.max(0.005, Number(elapsed.toFixed(3))),
         recentSequence: sequence,
@@ -147,8 +186,7 @@ export function analyzePatternLogic(history: HistoryItem[]): PatternAnalysisResu
     }
   }
 
-  // Fallback if sequence is 1 char or empty
-  const lastChar = sequence.slice(-1) || 'B';
+  // 3. Fallback if sequence is 1 char or empty
   const pred = lastChar === 'B' ? 'SMALL' : 'BIG';
   const elapsed = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
 
@@ -157,7 +195,7 @@ export function analyzePatternLogic(history: HistoryItem[]): PatternAnalysisResu
     strategy: `DYNAMIC BALANCE [${lastChar}] → ${pred}`,
     patternDetected: lastChar,
     trendType: 'DYNAMIC_BALANCE',
-    confidence: 82,
+    confidence: 85,
     executionTimeMs: Math.max(0.005, Number(elapsed.toFixed(3))),
     recentSequence: sequence,
   };

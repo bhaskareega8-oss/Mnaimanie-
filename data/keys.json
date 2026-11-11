@@ -34,5 +34,29 @@
     "boundDeviceName": null,
     "status": "UNUSED",
     "note": "Customer 3D"
+  },
+  {
+    "id": "LUNAR-1D-9LGB-XP5R",
+    "duration": "1D",
+    "durationMs": 86400000,
+    "createdAt": 1794416587391,
+    "activatedAt": null,
+    "expiresAt": null,
+    "boundDeviceId": null,
+    "boundDeviceName": null,
+    "status": "UNUSED",
+    "note": "Test Client"
+  },
+  {
+    "id": "LUNAR-3D-YNCC-FYZ6",
+    "duration": "3D",
+    "durationMs": 259200000,
+    "createdAt": 1794416767966,
+    "activatedAt": null,
+    "expiresAt": null,
+    "boundDeviceId": null,
+    "boundDeviceName": null,
+    "status": "UNUSED",
+    "note": "VIP 3 Days Test"
   }
 ]

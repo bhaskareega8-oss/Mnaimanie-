@@ -58,11 +58,33 @@ function generateRandomSegment(len = 4): string {
 
 function parseJsonBody<T = any>(req: any): Promise<T> {
   return new Promise((resolve) => {
+    if (req.body) {
+      if (typeof req.body === 'object') return resolve(req.body as T);
+      if (typeof req.body === 'string') {
+        try {
+          return resolve(JSON.parse(req.body) as T);
+        } catch {
+          return resolve({} as T);
+        }
+      }
+    }
+    if (req.readableEnded) {
+      return resolve({} as T);
+    }
     let data = '';
+    const timer = setTimeout(() => {
+      try {
+        resolve(data ? JSON.parse(data) : ({} as T));
+      } catch {
+        resolve({} as T);
+      }
+    }, 1200);
+
     req.on('data', (chunk: any) => {
       data += chunk;
     });
     req.on('end', () => {
+      clearTimeout(timer);
       try {
         resolve(data ? JSON.parse(data) : ({} as T));
       } catch {
@@ -70,6 +92,7 @@ function parseJsonBody<T = any>(req: any): Promise<T> {
       }
     });
     req.on('error', () => {
+      clearTimeout(timer);
       resolve({} as T);
     });
   });
@@ -163,14 +186,14 @@ export function keyApiPlugin(): Plugin {
             });
           }
 
-          // Check if already expired
-          if (found.expiresAt && Date.now() > found.expiresAt) {
+          // Check if key is expired or already marked expired
+          if (found.status === 'EXPIRED' || (found.expiresAt && Date.now() >= found.expiresAt)) {
             found.status = 'EXPIRED';
             saveKeys(keys);
             return sendJson(res, 403, {
               valid: false,
               error: 'KEY_EXPIRED',
-              message: 'ACCESS KEY EXPIRED! CONTACT ADMIN FOR RENEWAL',
+              message: 'ACCESS KEY EXPIRED! LOGIN NOT ALLOWED',
             });
           }
 
@@ -234,7 +257,7 @@ export function keyApiPlugin(): Plugin {
           return sendJson(res, 200, {
             success: true,
             total: keys.length,
-            keys: keys.reverse(), // newest first
+            keys: [...keys].reverse(), // newest first without mutating original
           });
         }
 
@@ -246,7 +269,7 @@ export function keyApiPlugin(): Plugin {
             note?: string;
           }>(req);
 
-          const adminKey = (body.adminKey || '').trim().toLowerCase().replace(/\s+/g, ' ');
+          const adminKey = (body.adminKey || urlObj.searchParams.get('adminKey') || '').trim().toLowerCase().replace(/\s+/g, ' ');
           if (adminKey !== ADMIN_SECRET && adminKey !== 'karthikpapa') {
             return sendJson(res, 401, { error: 'UNAUTHORIZED_ADMIN' });
           }
@@ -334,6 +357,27 @@ export function keyApiPlugin(): Plugin {
           return sendJson(res, 200, {
             success: true,
             message: 'KEY DELETED SUCCESSFULLY',
+          });
+        }
+
+        // ================= ADMIN: CLEAR ALL EXPIRED KEYS =================
+        if (pathname === '/api/admin/clear-expired' && req.method === 'POST') {
+          const body = await parseJsonBody<{ adminKey?: string }>(req);
+          const adminKey = (body.adminKey || '').trim().toLowerCase().replace(/\s+/g, ' ');
+          if (adminKey !== ADMIN_SECRET && adminKey !== 'karthikpapa') {
+            return sendJson(res, 401, { error: 'UNAUTHORIZED_ADMIN' });
+          }
+
+          const now = Date.now();
+          let keys = readKeys();
+          const initialCount = keys.length;
+          keys = keys.filter((k) => !(k.status === 'EXPIRED' || (k.expiresAt && now >= k.expiresAt)));
+          saveKeys(keys);
+
+          return sendJson(res, 200, {
+            success: true,
+            clearedCount: initialCount - keys.length,
+            message: `CLEARED ${initialCount - keys.length} EXPIRED KEYS`,
           });
         }
 

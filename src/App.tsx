@@ -8,6 +8,7 @@ import {
   SessionRecord,
   HistoryItem,
   PatternAnalysisResult,
+  CORE_PATTERNS,
 } from './services/lunarEngine';
 import {
   LOGO_DATA_URL,
@@ -15,7 +16,11 @@ import {
   BG_DASH_DATA_URL,
 } from './assets-data';
 import { AdminPanelModal } from './components/AdminPanelModal';
-import { verifyLicenseKey } from './services/adminKeyService';
+import {
+  verifyLicenseKey,
+  getStoredLicense,
+  saveStoredLicense,
+} from './services/adminKeyService';
 
 const ADMIN_KEY_SECRET = 'karthik papa';
 
@@ -107,6 +112,27 @@ export default function App() {
     const secs = totalSecs % 60;
     return `${mins}m ${secs.toString().padStart(2, '0')}s`;
   };
+
+  // Auto-expire active key & terminate session immediately when time runs out
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const checkKeyExpiry = () => {
+      const lic = getStoredLicense();
+      if (!lic) return;
+      if (lic.id === 'MASTER_KEY') return;
+      if (lic.status === 'EXPIRED' || (lic.expiresAt && Date.now() >= lic.expiresAt)) {
+        saveStoredLicense(null);
+        setIsAuthenticated(false);
+        sound.play('error');
+        setAuthError('ACCESS KEY EXPIRED! YOUR TIME HAS ENDED. PLEASE RENEW WITH ADMIN.');
+      }
+    };
+
+    checkKeyExpiry();
+    const interval = setInterval(checkKeyExpiry, 2000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
 
   // Engine state
   const [currentPeriod, setCurrentPeriod] = useState<string>('----');
@@ -379,9 +405,11 @@ export default function App() {
         // We look for any match: either latest issue or in recent list where issueNumber === currentActiveRef.current.period
         const pendingPrediction = currentActiveRef.current;
         if (pendingPrediction && lastProcessedRef.current !== issue) {
+          const predP = pendingPrediction.period.trim();
           const matchedItem =
-            list.find((item) => String(item.issueNumber) === pendingPrediction.period) ||
-            (pendingPrediction.period === issue ? latest : null);
+            list.find((item) => String(item.issueNumber).trim() === predP) ||
+            list.find((item) => String(item.issueNumber).trim().slice(-4) === predP.slice(-4)) ||
+            (predP === issue ? latest : null);
 
           if (matchedItem && lastProcessedRef.current !== String(matchedItem.issueNumber)) {
             const resolvedIssue = String(matchedItem.issueNumber);
@@ -437,6 +465,9 @@ export default function App() {
 
             lastProcessedRef.current = resolvedIssue;
             justResolved = true;
+
+            // Reset currentActiveRef to immediately force next pattern detection on loss or win
+            currentActiveRef.current = null;
           }
         }
 
@@ -620,18 +651,6 @@ export default function App() {
 
       {/* Cyber Vignette */}
       <div className="bg-vignette" />
-
-      {/* Sound Toggle (Floating on Login) */}
-      {!isAuthenticated && (
-        <button
-          type="button"
-          onClick={handleToggleSound}
-          className="fixed top-3.5 right-3.5 z-50 flex items-center gap-2 py-2 px-3.5 rounded-full bg-[rgba(13,10,28,0.85)] border border-[rgba(168,85,247,0.38)] backdrop-blur-md font-black text-[11px] tracking-wider text-[#f1f5f9] cursor-pointer shadow-lg hover:border-[#00f0ff] transition-all"
-        >
-          <span className="text-sm">{isSoundOn ? '🔊' : '🔇'}</span>
-          <span>{isSoundOn ? 'SOUND ON' : 'MUTED'}</span>
-        </button>
-      )}
 
       {/* Celebratory Result Modal with 6-second auto dismiss & zero confetti bombs */}
       <ResultModal data={modalData} onClose={handleCloseModal} />
@@ -1079,7 +1098,134 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* User Interactive Pattern Grid (BSSB, BBB, SSS, BBBSSS, SSSBBB, SBBS, BSBS, SSBB & DRAGON) */}
+                <div className="glass p-3.5 px-3 mb-3 border-[rgba(168,85,247,0.35)] shadow-[0_15px_40px_rgba(0,0,0,0.6)]">
+                  <div className="flex items-center justify-between mb-2.5 px-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#00ff9d] animate-pulse" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#f1f5f9]">
+                        ACTIVE PATTERNS DETECTOR
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-mono font-black text-[#00f0ff]">
+                      ⚡ &lt;0.01s ULTRA-FAST
+                    </span>
+                  </div>
 
+                  {/* Grid matching user attachment photo */}
+                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                    {CORE_PATTERNS.map((item) => {
+                      const isActive =
+                        detectedPatternInfo.activePatternId === item.id ||
+                        detectedPatternInfo.patternDetected.toUpperCase().includes(item.id);
+
+                      const isBigTarget = item.target === 'BIG';
+                      const isSmallTarget = item.target === 'SMALL';
+
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => {
+                            sound.play('click');
+                            handleManualRescan();
+                          }}
+                          className={`relative p-2.5 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all select-none ${
+                            isActive
+                              ? 'border-2 border-[#00ff9d] bg-[rgba(0,255,157,0.15)] shadow-[0_0_20px_rgba(0,255,157,0.5)] ring-2 ring-[#00ff9d]/30 scale-[1.03] z-10'
+                              : 'border border-[rgba(168,85,247,0.3)] bg-[rgba(10,8,24,0.85)] hover:border-[rgba(0,240,255,0.6)]'
+                          }`}
+                        >
+                          {isActive && (
+                            <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-[#00ff9d] shadow-[0_0_8px_#00ff9d] animate-ping" />
+                          )}
+                          <span className="font-display font-black text-xs sm:text-sm text-white tracking-wider">
+                            {item.label}
+                          </span>
+                          <span
+                            className={`text-[9px] sm:text-[10px] font-black tracking-wide mt-1 flex items-center gap-0.5 ${
+                              isBigTarget
+                                ? 'text-[#ff9900]'
+                                : isSmallTarget
+                                ? 'text-[#00e5ff]'
+                                : 'text-[#ffd700]'
+                            }`}
+                          >
+                            <span>→</span>
+                            <span>{item.target}</span>
+                          </span>
+                        </div>
+                      );
+                    })}
+
+                    {/* Dedicated RUN 0.01s Cyan Action Button as shown in photo */}
+                    <button
+                      type="button"
+                      onClick={handleManualRescan}
+                      className="relative p-2.5 rounded-2xl border-2 border-[#00f0ff] bg-[rgba(0,240,255,0.12)] text-[#00f0ff] shadow-[0_0_20px_rgba(0,240,255,0.35)] flex flex-col items-center justify-center cursor-pointer hover:bg-[rgba(0,240,255,0.22)] active:scale-95 transition-all select-none"
+                      title="Run pattern detection (<0.01s)"
+                    >
+                      <span className="font-display font-black text-xs sm:text-sm tracking-wider flex items-center gap-1">
+                        ▶ RUN
+                      </span>
+                      <span className="font-mono text-[9px] text-[#00ff9d] font-bold mt-0.5">
+                        0.01s
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Neural Pattern HUD Bar (Monitors BSSB, BBB, SSS, BBBSSS, SSSBBB, SBBS, BSBS, SSBB & DRAGON PATTERN) */}
+                <div className="glass p-3 px-4 mb-3 border-[rgba(0,255,157,0.35)] shadow-[0_10px_25px_rgba(0,0,0,0.5)]">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#00ff9d] animate-ping" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#00ff9d]">
+                        NEURAL PATTERN ENGINE
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-mono font-black text-[#00f0ff] px-2 py-0.5 rounded-full bg-[rgba(0,240,255,0.12)] border border-[rgba(0,240,255,0.3)]">
+                      ⚡ &lt;0.01s DETECTED
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-[rgba(5,4,12,0.85)] border border-[rgba(168,85,247,0.25)]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-black text-[#94a3b8] uppercase tracking-wider">PATTERN:</span>
+                      <span
+                        className={`font-display font-black text-xs px-2 py-0.5 rounded-lg border tracking-wider ${
+                          detectedPatternInfo.trendType === 'DRAGON_PATTERN'
+                            ? 'bg-[rgba(255,215,0,0.2)] border-[#ffd700] text-[#ffd700] shadow-[0_0_12px_rgba(255,215,0,0.4)] animate-pulse'
+                            : 'bg-[rgba(0,255,157,0.15)] border-[#00ff9d] text-[#00ff9d] shadow-[0_0_10px_rgba(0,255,157,0.3)]'
+                        }`}
+                      >
+                        {detectedPatternInfo.patternDetected}
+                      </span>
+                    </div>
+                    <div className="text-[9px] font-black uppercase text-[#00f0ff] tracking-wider truncate max-w-[170px] text-right">
+                      {detectedPatternInfo.strategy.split('[')[0].trim()}
+                    </div>
+                  </div>
+
+                  {detectedPatternInfo.recentSequence && (
+                    <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[rgba(168,85,247,0.2)] text-[9px] font-mono">
+                      <span className="text-[#94a3b8] uppercase tracking-wider font-bold">RECENT TREND:</span>
+                      <div className="flex items-center gap-1 font-black">
+                        {detectedPatternInfo.recentSequence.slice(-8).split('').map((char, idx, arr) => (
+                          <span
+                            key={idx}
+                            className={`px-1.5 py-0.5 rounded ${
+                              char === 'B'
+                                ? 'text-[#ff9900] bg-[rgba(255,153,0,0.18)]'
+                                : 'text-[#00e5ff] bg-[rgba(0,229,255,0.18)]'
+                            } ${idx === arr.length - 1 ? 'border border-[#00ff9d] shadow-[0_0_8px_rgba(0,255,157,0.6)] scale-110' : ''}`}
+                          >
+                            {char}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* AI Confidence Meter */}
                 <div className="glass p-3 px-4 mb-3 border-[rgba(168,85,247,0.25)]">

@@ -5,6 +5,7 @@ import {
   generateAdminKey,
   resetKeyDevice,
   deleteKey,
+  clearExpiredKeys,
 } from '../services/adminKeyService';
 import { sound } from '../services/sound';
 
@@ -55,7 +56,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       setGeneratedKey(res.key);
       setClientNote('');
       sound.play('win');
-      setActionMessage(`✓ Generated new ${selectedDuration} VIP Key!`);
+      setActionMessage(`✓ Generated new ${selectedDuration} VIP Key: ${res.key.id}`);
+      setKeys((prev) => [res.key!, ...prev.filter((k) => k.id !== res.key!.id)]);
       await loadKeys();
     } else {
       sound.play('loss');
@@ -65,25 +67,42 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   };
 
   const handleResetDevice = async (keyId: string) => {
-    if (!window.confirm(`Reset device lock for ${keyId}? The customer will be able to bind a new device.`)) {
-      return;
-    }
     sound.play('click');
     const res = await resetKeyDevice(adminSecret, keyId);
     if (res.success) {
       setActionMessage(`✓ Device lock reset for ${keyId}`);
+      setKeys((prev) =>
+        prev.map((k) => (k.id === keyId ? { ...k, boundDeviceId: null, boundDeviceName: null } : k))
+      );
       await loadKeys();
     }
   };
 
   const handleDelete = async (keyId: string) => {
-    if (!window.confirm(`Delete key ${keyId} permanently?`)) return;
     sound.play('click');
     const res = await deleteKey(adminSecret, keyId);
     if (res.success) {
-      setActionMessage(`✓ Key deleted`);
+      sound.play('win');
+      setActionMessage(`✓ Key deleted successfully`);
+      setKeys((prev) => prev.filter((k) => k.id !== keyId));
+      if (generatedKey?.id === keyId) {
+        setGeneratedKey(null);
+      }
       await loadKeys();
     }
+  };
+
+  const handleClearExpired = async () => {
+    sound.play('click');
+    if (!window.confirm('Delete all expired keys from system?')) return;
+    setLoading(true);
+    const res = await clearExpiredKeys(adminSecret);
+    if (res.success) {
+      sound.play('win');
+      setActionMessage(`✓ Successfully removed ${res.clearedCount} expired keys`);
+      await loadKeys();
+    }
+    setLoading(false);
   };
 
   const copyToClipboard = async (text: string, id: string) => {
@@ -310,7 +329,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 ))}
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <input
                   type="text"
                   value={searchQuery}
@@ -326,6 +345,17 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 >
                   🔄
                 </button>
+                {expiredCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearExpired}
+                    title="Delete all expired keys"
+                    className="py-1 px-2.5 rounded-lg bg-[rgba(255,42,95,0.2)] border border-[rgba(255,42,95,0.45)] text-[#ff2a5f] hover:bg-[#ff2a5f] hover:text-white font-black text-[10px] cursor-pointer flex items-center gap-1 transition-colors"
+                  >
+                    <span>🗑️</span>
+                    <span>CLEAR EXPIRED ({expiredCount})</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -432,10 +462,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDelete(k.id)}
-                          className="py-1 px-2 rounded-lg bg-[rgba(255,42,95,0.12)] border border-[rgba(255,42,95,0.3)] text-[#ff2a5f] text-[10px] font-black hover:bg-[rgba(255,42,95,0.25)] cursor-pointer"
-                          title="Delete Key"
+                          className="py-1 px-2.5 rounded-lg bg-[rgba(255,42,95,0.22)] border border-[rgba(255,42,95,0.5)] text-[#ff2a5f] hover:bg-[#ff2a5f] hover:text-white text-[10px] font-black hover:shadow-[0_0_12px_rgba(255,42,95,0.5)] cursor-pointer transition-all flex items-center gap-1"
+                          title="Delete Key Permanently"
                         >
-                          ✕
+                          <span>🗑️</span>
+                          <span>DELETE</span>
                         </button>
                       </div>
                     </div>
