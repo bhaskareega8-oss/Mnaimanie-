@@ -1,0 +1,38 @@
+[
+  {
+    "id": "LUNAR-7D-2U2V-WNXA",
+    "duration": "7D",
+    "durationMs": 604800000,
+    "createdAt": 1794370290135,
+    "activatedAt": 1794370293726,
+    "expiresAt": 1794975093726,
+    "boundDeviceId": "device_phone_mithesh",
+    "boundDeviceName": "Mithesh Mobile",
+    "status": "ACTIVE",
+    "note": "VIP User 1"
+  },
+  {
+    "id": "LUNAR-1D-JWEN-4N7J",
+    "duration": "1D",
+    "durationMs": 86400000,
+    "createdAt": 1794370506632,
+    "activatedAt": 1794370516014,
+    "expiresAt": 1794456916014,
+    "boundDeviceId": "dev_customer_phone_A",
+    "boundDeviceName": "Samsung S24",
+    "status": "ACTIVE",
+    "note": "Demo 1 Day"
+  },
+  {
+    "id": "LUNAR-3D-DAHL-9A2P",
+    "duration": "3D",
+    "durationMs": 259200000,
+    "createdAt": 1794370509633,
+    "activatedAt": null,
+    "expiresAt": null,
+    "boundDeviceId": null,
+    "boundDeviceName": null,
+    "status": "UNUSED",
+    "note": "Customer 3D"
+  }
+]
